@@ -17,13 +17,9 @@ class Model(Model_cl):
     def prepare_for_new_task(self, **kwargs):
         if self.config.lora:
             if self.year == self.config.start_year + 1:
-                # for i in range(self.config.t_layer):
-                #     self.model.model.model.t_attn.attn[i].attn = LoRA_attn(self.model.model.model.t_attn.attn[i].attn, 4, 4)
                 for i in range(self.config.s_layer):
                     self.model.model.model.s_attn.attn[i].attn = LoRA_attn(self.model.model.model.s_attn.attn[i].attn, 4, 4)
             elif self.year > self.config.start_year:
-                # for i in range(self.config.t_layer):
-                #     self.model.model.model.t_attn.attn[i].attn.merge_lora_parameters()
                 for i in range(self.config.s_layer):
                     self.model.model.model.s_attn.attn[i].attn.merge_lora_parameters()
         if self.config.cl_strategy == 'Retrain':
@@ -32,10 +28,6 @@ class Model(Model_cl):
             return
         self.graph = self.get_graph(self.year)
         self.model.prepare_for_new_task(self.config.num_nodes_year[self.year])
-        # if isinstance(self.model.model.emb.lin, nn.Linear):
-        #     self.model.model.emb.lin = Gated_linear(self.model.model.emb.lin)
-        # if isinstance(self.model.model.pred.lin, nn.Linear):
-        #     self.model.model.pred.lin = Gated_linear(self.model.model.pred.lin)
         for name, para in self.model.named_parameters():
             if not 'prompt' in name and not 'gate' in name:
                 para.requires_grad = False
@@ -80,26 +72,10 @@ class ST_Prompt(nn.Module):
         x_emb = self.model.emb(x)
         if x_emb.ndim == 3 and not isinstance(st_emb, int) and st_emb.ndim == 4:
             st_emb = st_emb.mean(1)
-        # st_emb = self.prompt(p)
-        # if not isinstance(st_emb, int):
-        #     st_emb = st_emb.mean(1).transpose(1, 2).unsqueeze(-1)
-        # x_emb = self.model.emb(x + st_emb)
         x = self.model.model(x_emb + st_emb) if g is None else self.model.model(x_emb + st_emb, g)
-        # x = self.model.model(x_emb) if g is None else self.model.model(x_emb, g)
         x = self.model.pred(x)
         return x
-    # def forward(self, x, p, g=None):
-    #     if not isinstance(self.prompt, ST_Embedding):
-    #         x_emb = self.model.emb(x)
-    #         x = self.model.model(x_emb) if g is None else self.model.model(x_emb, g)
-    #         x = self.model.pred(x)
-    #         return x
-    #     t_emb, s_emb = self.prompt(p)
-    #     x_emb = self.model.emb(x)
-    #     x = self.model.model(x_emb + s_emb) if g is None else self.model.model(x_emb + s_emb, g)
-    #     x = self.model.pred(x + t_emb.mean(1))
-    #     return x
-
+        
     def prepare_for_new_task(self, new_num_nodes):
         if isinstance(self.prompt, ST_Embedding):
             self.prompt.prepare_for_new_task(new_num_nodes)
@@ -164,32 +140,3 @@ class Temporal_Prompt(nn.Module):
 
     def prepare_for_new_task(self, *args, **kwargs):
         pass
-
-class Gated_linear(nn.Module):
-    def __init__(self, lin):
-        super().__init__()
-        dim_in = lin.in_features
-        dim_out = lin.out_features
-        self.lin = lin
-        self.lin.requires_grad_(False)
-        self.gate = nn.Linear(dim_in, dim_out).to(lin.weight.device)
-        self.af = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.lin(x) * self.af(self.gate(x))
-        return x
-
-class Gated_linear_v2(nn.Module):
-    def __init__(self, lin):
-        super().__init__()
-        dim_in = lin.in_features
-        dim_out = lin.out_features
-        self.lin = lin
-        self.lin.requires_grad_(False)
-        self.gate1 = nn.Linear(dim_in, dim_out).to(lin.weight.device)
-        self.gate2 = nn.Linear(dim_out, dim_out).to(lin.weight.device)
-        self.af = nn.Sigmoid()
-
-    def forward(self, x, p):
-        x = self.lin(x) * self.af(self.gate1(x) * self.gate2(p.mean(1)))
-        return x
