@@ -1,4 +1,4 @@
-**STPrompt**
+# STPrompt
 
 Code implementation of "STPrompt: Parameter-Efficient Adaptation for Continual Spatio-Temporal Forecasting"
 
