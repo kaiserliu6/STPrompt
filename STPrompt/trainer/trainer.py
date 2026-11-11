@@ -311,16 +311,20 @@ class Trainer():
     def extra_config(self):
         pass
 
-    def run_multi_time(self, run_times=5, epochs=None):
+    def find_best_model(self, run_times=5, epochs=None, seed_list=None):
         best_result = None
         best_model = None
         ensure_dir('best_model/')
+        if seed_list is not None:
+            run_times = min(run_times, len(seed_list))
+        else:
+            run_times = [None for i in range(run_times)]
 
         for i in range(run_times):
             self.logger.info(f"{'=' * 20} Starting Run {i + 1}/{run_times} {'=' * 20}")
 
             if i > 0:
-                self.reintialize()
+                self.reintialize(seed_list[i])
             result = self.run(epochs)
 
             if self._is_better(result, best_result, False, 0.3, True):
@@ -334,10 +338,25 @@ class Trainer():
         self.logger.info(f"Best model saved to {save_dir}")
         return
 
-    def reintialize(self):
+    def run_multi_time(self, run_times=5, epochs=None, seed_list=None):
+        ensure_dir('cache/')
+        if seed_list is not None:
+            run_times = min(run_times, len(seed_list))
+        else:
+            run_times = [None for i in range(run_times)]
+
+        for i in range(run_times):
+            self.logger.info(f"{'=' * 20} Starting Run {i + 1}/{run_times} {'=' * 20}")
+            self.reintialize(seed_list[i])
+            result = self.run(epochs)
+            save_dir = f'cache/{self.dataset_name}/{self.model_name}_{self.seed}_{next(iter(result.values()))}'
+            torch.save((self.model.state_dict(), self.optimizer.state_dict()), save_dir)
+        return
+
+    def reintialize(self, seed=None):
         if getattr(self, '_writer', None) is not None:
             self._writer.close()
-        self._set_random_seed(None)
+        self._set_random_seed(seed)
         self.model = self._get_model()
         self.optimizer = self._build_optimizer()
         self.lr_scheduler = self._build_lr_scheduler()
@@ -379,46 +398,6 @@ class Trainer_test(Trainer):
     def test(self, cache_dir=None):
         self.load_model(cache_dir or self.find_latest_model())
         self._test_epoch()
-
-    def graph_analyse(self):
-        cache_dir = f'{self.model_name}_0'
-        for file in os.listdir(f'cache/{self.dataset_name}'):
-            if not file.startswith(self.model_name):
-                continue
-            if file > cache_dir:
-                cache_dir = file
-        self.load_model(f'cache/{self.dataset_name}/' + cache_dir)
-        gs = []
-        with torch.no_grad():
-            self.model.eval()
-            for batch in self.test_dl:
-                x, y = self.model.get_data(batch)
-                sag = self.model.test(*x)
-                gs.append(sag.cpu())
-                # plt.imshow(sag[24].cpu(), cmap='viridis')
-                plt.imshow(sag[:48].mean(0).cpu(), cmap='viridis')
-
-                # plt.xticks([0,33,66,99,132,165,198,231,264],['0','Nodes in Patch 1','66','Nodes in Patch 2','132','Nodes in Patch 3','198','Nodes in Patch 4','264'])
-                # plt.yticks([0, 33, 66, 99, 132, 165, 198, 231, 264],
-                #            ['0', 'Nodes in Patch 1', '66', 'Nodes in Patch 2', '132', 'Nodes in Patch 3', '198',
-                #             'Nodes in Patch 4', '264'])
-                plt.rcParams['font.size'] = 12
-                # plt.xticks([32.5 + i * 66 for i in range(4)], [f'Nodes in Patch {i}' for i in range(4)])
-                # plt.yticks([32.5 + i * 66 for i in range(4)], [f'Nodes in Patch {i}' for i in range(4)], rotation='vertical', rotation_mode='default')
-                # plt.xticks([-0.5,65.5,131.5,197.5,263.5],[])
-                # plt.yticks([-0.5, 65.5, 131.5, 197.5, 263.5], [])
-                # plt.colorbar(ticks=[])
-                plt.colorbar()
-                plt.show()
-                # for i in sag.cpu():
-                #     plt.imshow(i, cmap='viridis')
-                #     plt.colorbar()
-                #     plt.show()
-        sag = torch.cat(gs, 0).numpy()  # T,P,N,P,N
-        day = sag.size(0) // 48
-        # sag = sag[]
-
-        # used to save the result of every single step
 
     def save_result_every_step(self):
         self.evaluator = Evaluator(self.config.metric_list, [i + 1 for i in range(12)],

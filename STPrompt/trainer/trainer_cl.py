@@ -26,7 +26,6 @@ class Trainer_CL(Trainer):
     def run(self, epochs=None):
         result = {}
         self.cur_time = datetime.now().strftime("%Y_%m_%d_%H_%M")
-        self.config.base_model_dir = None
         self.saved_model_path = self.config.base_model_dir if isinstance(self.config.base_model_dir, str) else None
         self.cl_run_batch = []
         self.cl_train_time = []
@@ -39,21 +38,21 @@ class Trainer_CL(Trainer):
             self.peak_mem = 0
             self.model.year = year
             self.logger.info(f'Training on {year}')
-            if year == self.start_year and self.config.base_model_dir:
-                if not self.saved_model_path:
-                    raise ValueError('base_model_dir should be a checkpoint path string.')
-                self.load_model(self.saved_model_path)
-                self.test_dl = self.data.get_dataloader(getattr(self.model, 'norm', None), year=year, test_only=True)
-                result[year] = self.evaluate()
-                self.save_yearly_info()
-                gc.collect()
-                torch.cuda.empty_cache()
-                continue
-            elif year == self.start_year:
-                self.cache_dir = f'cache/{self.dataset_name}/{self.model_name}_{year}_{self.cur_time}.temp'
-                self.train_dl, self.val_dl, self.test_dl = self.data.get_dataloader(getattr(self.model, 'norm', None),
-                                                                                    year=year)
-                self.train()
+            if year == self.start_year:
+                if self.config.joint_training or self.saved_model_path is None:
+                    self.cache_dir = f'cache/{self.dataset_name}/{self.model_name}_{year}_{self.cur_time}.temp'
+                    self.load_data(year)
+                    self.train()
+                else:
+                    self.cache_dir = self.saved_model_path
+                    self.load_data(year, True)
+                if self.config.retrain_first_year and self.config.peft and self.model_name != 'Pretrain':
+                    self.load_model(self.saved_model_path)
+                    self.model.prepare_for_new_task()
+                    self.cache_dir = f'cache/{self.dataset_name}/{self.model_name}_{year}_{self.cur_time}.temp'
+                    self.load_data(year)
+                    self.reintialize()
+                    self.train()
             elif self.config.cl_strategy == 'Pretrain':
                 if not self.saved_model_path:
                     raise FileNotFoundError(f'No saved checkpoint is available before evaluating {year}.')
@@ -72,13 +71,37 @@ class Trainer_CL(Trainer):
                 self.reintialize()
                 self.train()
             self.load_model()
-            result[year] = self.evaluate()
-            self.save_yearly_info()
-            gc.collect()
-            torch.cuda.empty_cache()
+            result = self.evaluate_year(result, year)
         self.model.last_info()
         self.update_yearly_info()
         return result
+
+    def evaluate_year(self, result, year):
+        result[year] = self.evaluate()
+        self.save_yearly_info()
+        gc.collect()
+        torch.cuda.empty_cache()
+        return result
+
+    def load_model(self, path=None):
+        path = path or self.cache_dir
+        model_state, optimizer_state = torch.load(path)
+        model_keys = self.model.state_dict().keys()
+        if model_state.keys() != model_keys:
+            if all(key.startswith('model.') for key in model_state) and {
+                key[len('model.'):] for key in model_state
+            } == model_keys:
+                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'model.')
+            elif {'model.' + key for key in model_state} == model_keys:
+                prefixed_state = type(model_state)(('model.' + key, value) for key, value in model_state.items())
+                if hasattr(model_state, '_metadata'):
+                    prefixed_state._metadata = {
+                        'model.' + key if key else 'model': value
+                        for key, value in model_state._metadata.items()
+                    }
+                model_state = prefixed_state
+        self.model.load_state_dict(model_state)
+        self.optimizer.load_state_dict(optimizer_state)
 
     def save_model(self):
         super().save_model()
@@ -155,3 +178,10 @@ class Trainer_CL(Trainer):
         torch.save(best_model, save_dir)
         self.logger.info(f'Best model saved to {save_dir}')
         return
+
+    def load_data(self, year, test_only=False, subset=False):
+        ss = getattr(self.model, 'subset', None) if subset else None
+        if test_only:
+            self.test_dl = self.data.get_dataloader(getattr(self.model, 'norm', None), year=year, test_only=True, subset=ss)
+        else:
+            self.train_dl, self.val_dl, self.test_dl = self.data.get_dataloader(getattr(self.model, 'norm', None), year=year, subset=ss)
