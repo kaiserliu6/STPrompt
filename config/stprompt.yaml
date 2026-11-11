@@ -1,0 +1,78 @@
+default: &default
+  backbone: stf4
+  optimizer: adamW
+  batch_size: 128
+  epoch: 200
+  early_stop: 20
+  dropout: 0.0
+  loss: mae
+  retrain_first_year: True
+  gtg:
+    emb_dim: 12
+    loss: mse
+  gcn:
+    in_channel: 12
+    out_channel: 12
+    hidden_channel: 64
+  kernel_size: 3
+  dilation: 1
+  emb_dim: 64
+  gwnet:
+    emb_dim: 32
+    out_dim: 256
+  s_layer: 2
+  t_layer: 2
+  s_head: 4
+  t_head: 2
+  tod_mem: 15
+  spa_mem: 20
+  tod_slot: 12
+  override: True
+  node_prompt: True
+  tem_prompt: True
+  prompt_prompt: True
+  emb_prompt: False
+  need_time: True
+  need_graph: True
+  type_spa: 1
+  type_tem: 1
+  joint_training: False
+  L: 2
+  K: 64
+  peft: True
+
+NYC_CL:
+  <<: *default
+  batch_size: 256
+  gtg:
+    emb_dim: 12
+    loss: mse
+  gcn:
+    in_channel: 24
+    out_channel: 24
+    hidden_channel: 64
+#  stf:
+#    base_model_dir: cache/NYC_CL/STPrompt_2019_2026_01_17_15_39.temp
+  stf2:
+    base_model_dir: cache/best_model/NYC_CL_stf2_16.665_model
+#  stf4:
+#    base_model_dir: cache/best_model/NYC_CL_stf4_16.301_model
+
+PEMS_CL:
+  <<: *default
+  batch_size: 12
+#  stf:
+#    base_model_dir: cache/PEMS_CL/STPrompt_2011_2026_01_16_22_56.temp
+  stf2:
+    base_model_dir: cache/best_model/PEMS_CL_stf2_13.600_model
+#    base_model_dir: cache/best_model/AIR_CL_stf2_24.317_model
+  stf4:
+    base_model_dir: cache/best_model/PEMS_CL_stf4_12.998_model
+
+AIR_CL:
+  <<: *default
+  batch_size: 32
+  stf2:
+    base_model_dir: cache/best_model/AIR_CL_stf2_24.317_model
+  stf4:
+    base_model_dir: cache/best_model/AIR_CL_stf4_24.113_model

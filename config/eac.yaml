@@ -1,0 +1,46 @@
+default: &default
+  backbone: stf4
+  optimizer: adamW
+  learning_rate: 0.03
+  clip_grad_norm: False
+  batch_size: 128
+  epoch: 200
+  early_stop: 20
+  dropout: 0.0
+  loss: mae
+  gtg:
+    loss: mse
+  gcn:
+    in_channel: 12
+    out_channel: 12
+    hidden_channel: 64
+  kernel_size: 3
+  dilation: 1
+  rank: 6
+  need_graph: True
+  emb_dim: 64
+  num_layer: 2
+  s_head: 4
+  t_head: 2
+#  dropout: 0.1
+  s_layer: 2
+  t_layer: 2
+#  train_size: 0.2
+  ste:
+    need_time: True
+
+NYC_CL:
+  <<: *default
+  batch_size: 256
+  gcn:
+    in_channel: 24
+    out_channel: 24
+    hidden_channel: 64
+
+PEMS_CL:
+  <<: *default
+  batch_size: 64
+
+AIR_CL:
+  <<: *default
+  batch_size: 32
