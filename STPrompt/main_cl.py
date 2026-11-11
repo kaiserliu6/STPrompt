@@ -23,37 +23,21 @@ def get_trainer(model, dataset, cd):
 
 
 if __name__ == "__main__":
-    model_list = ['STPrompt', 'EAC', 'trafficstream', 'STPrompt']
-    # model_list = ['EAC', 'STPrompt_test']
-    # model_list = ['Pretrain', 'Retrain', 'NewNode', 'AllNode', 'trafficstream']
-    model_list = ['Pretrain', 'Retrain', 'NewNode', 'AllNode', 'EAC', 'trafficstream', 'STPrompt', 'STBP']
-    # model_list = model_list[3:]
-    # model_list = ['Pretrain', 'Retrain', 'NewNode', 'AllNode', 'trafficstream', 'STPrompt']
-    # model_list = ['Pretrain', 'STPrompt']
-    # model_list = ['Retrain', 'AllNode']
+    model_list = ['Pretrain', 'Retrain', 'NewNode', 'AllNode', 'EAC', 'trafficstream', 'STBP', 'STPrompt']
     data_list = ['NYC_CL', 'PEMS_CL', 'AIR_CL']
-    # data_list = ['NYC_CL', 'PEMS_CL']
-    # data_list = ['PEMS_CL', 'AIR_CL']
-    # data_list = ['Energy_CL', 'AIR_CL']
     model_name = model_list[-1]
     data_name = data_list[1]
     save_name = None
-    # save_name = 'TPrompt'
     param_name = 'tod_mem'
     param_dict = [1, 5, 10, 15, 20, 25, 30, 40, 50, 60, 70]
-    param_dict = [60, 70]
 
-    run_times = 2
-    debug_flag = [0, 1, 1]
-    debug_flag = (0, 1, 1)
-    debug_flag = (1, 0, 0)
+    run_times = 1
+    debug_flag = (0, 0, 0)
     TEST_MODE = True
     # TEST_MODE = False
-    ENABLE_RUNTIME_TIMER = True
+    ENABLE_RUNTIME_TIMER = False
     RUNTIME_CSV_PATH = "result/run_time.csv"
 
-
-    # cd = {'output_window': 12, 'metric_len': [12], 'metirc_threshold': 0, 'task_name': 'CL'}
     cd = {'output_window': 12, 'metric_len': [3, 6, 12], 'eval_mode': 'single', 'metirc_threshold': 0, 'task_name': 'CL'}
 
     parser = argparse.ArgumentParser()
